@@ -42,6 +42,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:4200",
         "https://vixi.sivaxi.com",
+        "https://vixi.sivaxi.test"
     ],
     allow_credentials=True,
     allow_methods=["*"],

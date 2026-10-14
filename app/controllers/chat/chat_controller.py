@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.db.database import get_db
 from app.core.security.security import get_current_user
 from app.core.langgraph.langgraph import AppLangGraph
-from app.core.dependencies import get_app_lang_graph
+from app.core.dendencies.dependencies import get_app_lang_graph
 
 from app.controllers.chat.dto.chat import (
     ChatRequest,
