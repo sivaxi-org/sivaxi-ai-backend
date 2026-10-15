@@ -19,7 +19,10 @@ class Base(DeclarativeBase):
 
 engine = create_engine(
     DATABASE_URL,
+    pool_size=3,
+    max_overflow=0,
     pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 
