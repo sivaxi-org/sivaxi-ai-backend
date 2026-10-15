@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from app.core.tools.terminal import terminal
 from app.core.tools.memory import MEMORY_TOOLS
 from app.core.tools.search_web import search_web
 from app.core.tools.block_user import block_user
+from app.core.tools.visit_url import visit_url
 
 from app.core.llms.gemini_llm import GeminiLLM
 from app.core.constants.constants import (
@@ -71,6 +73,7 @@ class AppLangGraph:
             terminal,
             block_user,
             search_web,
+            visit_url,
             *MEMORY_TOOLS,
         ])
 
@@ -148,6 +151,7 @@ class AppLangGraph:
             ToolNode([
                 terminal,
                 block_user,
+                visit_url,
                 search_web,
                 *MEMORY_TOOLS,
             ]),
