@@ -57,6 +57,5 @@ app.include_router(project_router)
 @app.get("/ping")
 def root():
     return {
-        "message": "Data Intellijence API is running",
         "status": "OK",
     }
