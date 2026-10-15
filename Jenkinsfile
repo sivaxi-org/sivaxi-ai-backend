@@ -2,27 +2,31 @@
 pipeline {
     agent any
 
-    environment {
-        GHCR_CREDENTIALS = credentials('ghcr-credentials')
-    }
-
     stages {
         stage('Build Docker Images') {
             steps {
-                sh 'docker-compose build'
+                sh 'docker compose build'
             }
         }
 
         stage('Push Docker Images') {
             steps {
-                sh '''
-                    printf '%s' "$GHCR_CREDENTIALS_PSW" |
-                      docker login ghcr.io \
-                        -u "$GHCR_CREDENTIALS_USR" \
-                        --password-stdin
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'ghcr-credentials',
+                        usernameVariable: 'GHCR_USERNAME',
+                        passwordVariable: 'GHCR_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        printf '%s' "$GHCR_TOKEN" |
+                            docker login ghcr.io \
+                                --username "$GHCR_USERNAME" \
+                                --password-stdin
 
-                    docker-compose push
-                '''
+                        docker compose push
+                    '''
+                }
             }
         }
     }
