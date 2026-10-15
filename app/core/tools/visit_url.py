@@ -9,7 +9,6 @@ def visit_url(url: str) -> str:
     """Visit a public webpage and return its HTML content."""
 
     parsed = urlparse(url)
-
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return "Error: Please provide a valid HTTP or HTTPS URL."
 
