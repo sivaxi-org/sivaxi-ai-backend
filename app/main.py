@@ -49,7 +49,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.include_router(chat_router)
 app.include_router(project_router)
 
