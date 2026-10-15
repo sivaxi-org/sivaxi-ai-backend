@@ -2,13 +2,7 @@ pipeline {
     agent any
 
     stages {
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker compose build'
-            }
-        }
-
-        stage('Push Docker Image') {
+        stage('Build and Push Docker Image') {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -18,14 +12,25 @@ pipeline {
                     )
                 ]) {
                     sh '''
+                        set -eu
                         set +x
+
+                        IMAGE="ghcr.io/sivaxi-org/sivaxi-ai"
+                        VERSION="${BUILD_NUMBER}"
 
                         printf '%s' "$GHCR_PASSWORD" |
                             docker login ghcr.io \
                                 --username "$GHCR_USERNAME" \
                                 --password-stdin
 
-                        docker compose push
+                        docker build \
+                            -f Dockerfile \
+                            -t "$IMAGE:$VERSION" \
+                            -t "$IMAGE:latest" \
+                            .
+
+                        docker push "$IMAGE:$VERSION"
+                        docker push "$IMAGE:latest"
 
                         docker logout ghcr.io
                     '''
@@ -36,7 +41,7 @@ pipeline {
 
     post {
         success {
-            echo 'Docker images built and pushed successfully...'
+            echo 'Docker image built and pushed with version and latest tags.'
         }
 
         failure {
