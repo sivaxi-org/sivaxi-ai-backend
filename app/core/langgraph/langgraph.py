@@ -1,12 +1,9 @@
+
 import os
-
-from dotenv import load_dotenv
-
-
-load_dotenv()
-
 from dataclasses import dataclass
 from typing import TypedDict, Annotated
+
+from dotenv import load_dotenv
 
 from langgraph.graph import (
     StateGraph,
@@ -17,6 +14,9 @@ from langgraph.graph import (
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres import PostgresSaver
 
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
+
 from app.core.tools.terminal import terminal
 from app.core.tools.memory import MEMORY_TOOLS
 from app.core.tools.search_web import search_web
@@ -24,11 +24,20 @@ from app.core.tools.block_user import block_user
 from app.core.tools.visit_url import visit_url
 
 from app.core.llms.gemini_llm import GeminiLLM
+
 from app.core.constants.constants import (
     ADMIN_SYSTEM_PROMPT,
     DEFAULT_SYSTEM_PROMPT,
     PORTFOLIO_SYSTEM_PROMPT,
 )
+
+
+load_dotenv()
+
+
+# ============================================================
+# DATABASE CONFIGURATION
+# ============================================================
 
 DB_URI = os.getenv("DATABASE_URL")
 
@@ -41,6 +50,10 @@ DB_URI = DB_URI.replace(
     1,
 )
 
+
+# ============================================================
+# GRAPH CONTEXT
+# ============================================================
 
 @dataclass
 class GraphContext:
@@ -59,9 +72,17 @@ class LangGraphState(TypedDict):
     iterations: int
 
 
+# ============================================================
+# APP LANGGRAPH
+# ============================================================
+
 class AppLangGraph:
 
     def __init__(self):
+
+        self.checkpointer_pool = None
+        self.checkpointer = None
+        self.graph = None
 
         # ========================================================
         # LLM
@@ -91,49 +112,62 @@ class AppLangGraph:
         self.add_edges()
 
         # ========================================================
-        # POSTGRES CHECKPOINTER
+        # POSTGRES CHECKPOINTER CONNECTION POOL
         #
-        # Created ONCE for this AppLangGraph instance.
-        # Do NOT create AppLangGraph per request.
+        # Maximum one pooled connection per AppLangGraph instance.
         # ========================================================
 
-        self.checkpointer_context = (
-            PostgresSaver.from_conn_string(
-                DB_URI
+        self.checkpointer_pool = ConnectionPool(
+            conninfo=DB_URI,
+            min_size=0,
+            max_size=1,
+            max_idle=60.0,
+            kwargs={
+                "autocommit": True,
+                "prepare_threshold": None,
+                "row_factory": dict_row,
+                "connect_timeout": 10,
+            },
+            open=False,
+        )
+
+        try:
+            self.checkpointer_pool.open(
+                wait=True,
+                timeout=10,
             )
-        )
 
-        self.checkpointer = (
-            self.checkpointer_context.__enter__()
-        )
+            self.checkpointer = PostgresSaver(
+                self.checkpointer_pool
+            )
 
-        # Run setup once when the application starts.
-        self.checkpointer.setup()
+            # Create checkpoint tables if they do not exist.
+            self.checkpointer.setup()
 
-        # ========================================================
-        # COMPILE GRAPH
-        # ========================================================
+            # ====================================================
+            # COMPILE GRAPH
+            # ====================================================
 
-        self.graph = self.lang_graph.compile(
-            checkpointer=self.checkpointer
-        )
+            self.graph = self.lang_graph.compile(
+                checkpointer=self.checkpointer
+            )
+
+        except Exception:
+            self.close()
+            raise
 
     # ============================================================
-    # CLOSE
+    # CLOSE DATABASE RESOURCES
     # ============================================================
 
     def close(self):
 
-        if self.checkpointer_context is not None:
+        if self.checkpointer_pool is not None:
+            self.checkpointer_pool.close()
+            self.checkpointer_pool = None
 
-            self.checkpointer_context.__exit__(
-                None,
-                None,
-                None,
-            )
-
-            self.checkpointer_context = None
-            self.checkpointer = None
+        self.checkpointer = None
+        self.graph = None
 
     # ============================================================
     # NODES
@@ -229,11 +263,9 @@ class AppLangGraph:
         max_messages = 20
 
         if len(messages) <= max_messages:
-
             recent_messages = messages
 
         else:
-
             candidate_messages = messages[
                 -max_messages:
             ]
@@ -291,6 +323,11 @@ class AppLangGraph:
         message: str,
         project_id: str | None = None,
     ):
+
+        if self.graph is None:
+            raise RuntimeError(
+                "LangGraph has not been initialized"
+            )
 
         config = {
             "configurable": {
@@ -360,7 +397,7 @@ User message:
 
         if isinstance(content, list):
 
-            text = ""
+            text_content = ""
 
             for item in content:
 
@@ -368,9 +405,9 @@ User message:
                     isinstance(item, dict)
                     and "text" in item
                 ):
-                    text += item["text"]
+                    text_content += item["text"]
 
-            return text.strip()
+            return text_content.strip()
 
         return content.strip()
 
