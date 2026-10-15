@@ -19,10 +19,11 @@ class Base(DeclarativeBase):
 
 engine = create_engine(
     DATABASE_URL,
-    pool_size=3,
+    pool_size=2,
     max_overflow=0,
     pool_pre_ping=True,
     pool_recycle=300,
+    connect_args={"connect_timeout": 10},
 )
 
 
