@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Build Docker Images') {
             steps {
-                sh 'docker compose build'
+                sh 'docker-compose build'
             }
         }
 
@@ -21,7 +21,7 @@ pipeline {
                         -u "$GHCR_CREDENTIALS_USR" \
                         --password-stdin
 
-                    docker compose push
+                    docker-compose push
                 '''
             }
         }
