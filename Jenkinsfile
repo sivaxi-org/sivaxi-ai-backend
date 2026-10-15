@@ -36,7 +36,38 @@ pipeline {
                     '''
                 }
             }
+
+
+
+stage('Trigger Render Deployment') {
+    steps {
+        withCredentials([
+            string(
+                credentialsId: 'render-deploy-hook',
+                variable: 'RENDER_DEPLOY_HOOK_URL'
+            )
+        ]) {
+            sh '''
+                set -eu
+                set +x
+
+                echo "Triggering Render deployment..."
+
+                curl --fail --silent --show-error \
+                    --retry 3 \
+                    --retry-delay 2 \
+                    "$RENDER_DEPLOY_HOOK_URL"
+
+                echo "Render deployment triggered successfully."
+            '''
         }
+    }
+}
+
+        }
+
+
+
     }
 
     post {
